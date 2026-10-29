@@ -13,12 +13,6 @@ BIN_NAME="ZonesApp"
 ZONES_VERSION="${ZONES_VERSION:-0.1.0}"
 ZONES_BUILD="${ZONES_BUILD:-1}"
 
-# Sparkle auto-update config baked into Info.plist. The feed URL is the appcast
-# served over HTTPS; the public key verifies update signatures (its private half
-# lives in your Keychain — see Scripts/appcast.sh). Override the feed for staging.
-ZONES_FEED_URL="${ZONES_FEED_URL:-https://gavindraper.com/zones/appcast.xml}"
-ZONES_PUBLIC_ED_KEY="1ouprIZl/OqPjiJ/wGojDHSBMHj6xYCfD/KWCE5JxPs="
-
 # Build a universal (arm64 + x86_64) binary so releases run on both Apple Silicon
 # and Intel Macs — macOS 14 still supports 2018-era Intel hardware. Override with
 # ZONES_ARCHS="arm64" for a faster single-arch local build.
@@ -44,26 +38,6 @@ if [[ -f "$ICON_SRC" ]]; then
 else
     echo "!! $ICON_SRC missing — run Scripts/make-icon.sh to generate it." >&2
     exit 1
-fi
-
-echo "==> Embedding Sparkle.framework"
-# Match the universal (arm64 + x86_64) slice explicitly so a single-arch
-# framework can never be embedded by accident.
-SPARKLE_FW="$(find "$ROOT/.build/artifacts" -type d -name "Sparkle.framework" -path "*macos-arm64_x86_64*" | head -1)"
-if [[ -z "$SPARKLE_FW" ]]; then
-    echo "!! Universal Sparkle.framework not found under .build/artifacts — resolve it with 'swift build' first." >&2
-    exit 1
-fi
-mkdir -p "$APP/Contents/Frameworks"
-cp -R "$SPARKLE_FW" "$APP/Contents/Frameworks/"
-
-FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
-
-# The SwiftPM binary links Sparkle via @rpath; point that rpath at the bundle so
-# the framework resolves from inside the .app. Add it only if it's not already there
-# (a fresh copy never has it, but stay idempotent and let real failures surface).
-if ! otool -l "$APP/Contents/MacOS/Zones" | grep -q "@executable_path/../Frameworks"; then
-    install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Zones"
 fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -93,12 +67,6 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>SUFeedURL</key>
-    <string>${ZONES_FEED_URL}</string>
-    <key>SUPublicEDKey</key>
-    <string>${ZONES_PUBLIC_ED_KEY}</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
 </dict>
 </plist>
 PLIST
@@ -116,45 +84,11 @@ else
     SIGN_ID="-"
 fi
 
-# Sign with the hardened runtime (required for notarisation) from the inside out:
-# nested helpers and XPC services, then the framework, then the app last — an
-# enclosing signature is only valid if everything it contains is already signed.
-sign() { codesign --force --options runtime --sign "$SIGN_ID" "$@"; }
-
-echo "==> Signing Sparkle helpers + framework"
-# Resolve the version dir via the Current symlink instead of hardcoding 'B':
-# the dependency floats on Sparkle 2.x and the directory name can change.
-FWV="$FRAMEWORK/Versions/Current"
-sign "$FWV/XPCServices/Downloader.xpc"
-sign "$FWV/XPCServices/Installer.xpc"
-sign "$FWV/Updater.app"
-sign "$FWV/Autoupdate"
-sign "$FRAMEWORK"
-
-# The hardened runtime enforces Library Validation: the app may only load code
-# signed by Apple or by its own Team ID. A real "Developer ID" signature shares
-# the app's team with the embedded Sparkle.framework, so release builds pass for
-# free. Self-signed / ad-hoc dev builds have no team to match, so dyld rejects
-# the framework ("different Team IDs") — grant the disable-library-validation
-# exception there and ONLY there, keeping release builds at full strength.
+# Sign with the hardened runtime (required for notarisation). There are no
+# nested frameworks or helpers, so a single signature on the app is enough and
+# no library-validation exception is needed.
 echo "==> Signing app"
-if [[ "$SIGN_ID" == *"Developer ID"* ]]; then
-    sign "$APP"
-else
-    ENT_FILE="$ROOT/build/dev.entitlements"
-    cat > "$ENT_FILE" <<'ENT'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <true/>
-</dict>
-</plist>
-ENT
-    echo "    self-signed build — applying disable-library-validation entitlement"
-    codesign --force --options runtime --entitlements "$ENT_FILE" --sign "$SIGN_ID" "$APP"
-fi
+codesign --force --options runtime --sign "$SIGN_ID" "$APP"
 
 echo "==> Done: $APP"
 echo "    Launch with: open \"$APP\""

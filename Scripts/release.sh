@@ -70,7 +70,7 @@ case "${1:-}" in
 esac
 
 # What ./VERSION will hold after a successful run: patch above whatever we shipped
-# this time, with a monotonically increasing build (Sparkle orders updates by it).
+# this time, with a monotonically increasing build number.
 NEXT_VERSION="$(bump_patch "$VERSION")"
 NEXT_BUILD="$((BUILD + 1))"
 
@@ -130,7 +130,7 @@ echo "==> Building Zones.app  (version $VERSION, build $BUILD, identity '$IDENTI
 ZONES_VERSION="$VERSION" ZONES_BUILD="$BUILD" ZONES_SIGN_IDENTITY="$IDENTITY" \
     "$ROOT/Scripts/bundle.sh"
 
-echo "==> Verifying .app signature (deep — validates the embedded Sparkle helpers too)"
+echo "==> Verifying .app signature "
 codesign --verify --deep --strict --verbose=2 "$APP"
 
 # ---------------------------------------------------------------------------

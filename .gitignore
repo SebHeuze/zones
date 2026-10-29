@@ -1,14 +1,13 @@
 # Swift Package Manager
 .build/
 .swiftpm/
-# Package.resolved is committed to pin exact dependency versions (e.g. Sparkle).
 
 # Build artifacts / assembled app bundle
 build/
 DerivedData/
 *.app
 
-# Release DMG archive consumed by Scripts/appcast.sh (binaries live in GitHub Releases)
+# Release DMG staging directory (binaries live in GitHub Releases)
 dist/
 *.dmg
 

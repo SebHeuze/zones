@@ -13,22 +13,19 @@ final class MenuBarController: NSObject {
     private let onEditLayout: (UserLayout) -> Void
     private let onShowSettings: () -> Void
     private let onShowHelp: () -> Void
-    private let makeUpdateMenuItem: () -> NSMenuItem?
 
     init(
         library: LayoutLibrary,
         onNewLayout: @escaping () -> Void,
         onEditLayout: @escaping (UserLayout) -> Void,
         onShowSettings: @escaping () -> Void,
-        onShowHelp: @escaping () -> Void,
-        makeUpdateMenuItem: @escaping () -> NSMenuItem? = { nil }
+        onShowHelp: @escaping () -> Void
     ) {
         self.library = library
         self.onNewLayout = onNewLayout
         self.onEditLayout = onEditLayout
         self.onShowSettings = onShowSettings
         self.onShowHelp = onShowHelp
-        self.makeUpdateMenuItem = makeUpdateMenuItem
         self.statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
         configureButton()
@@ -57,7 +54,6 @@ final class MenuBarController: NSObject {
         addEditorEntries(to: menu)
         menu.addItem(.separator())
         addHelp(to: menu)
-        addUpdates(to: menu)
         addQuit(to: menu)
         statusItem.menu = menu
     }
@@ -111,13 +107,6 @@ final class MenuBarController: NSObject {
         let help = NSMenuItem(title: "Zones Help", action: #selector(showHelp), keyEquivalent: "")
         help.target = self
         menu.addItem(help)
-    }
-
-    /// Adds "Check for Updates…" when an updater is wired in. Absent in dev
-    /// builds that don't supply one, so the menu silently omits it.
-    private func addUpdates(to menu: NSMenu) {
-        guard let item = makeUpdateMenuItem() else { return }
-        menu.addItem(item)
     }
 
     private func addQuit(to menu: NSMenu) {

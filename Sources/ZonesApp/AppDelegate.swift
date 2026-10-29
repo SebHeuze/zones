@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var editor: EditorWindowController?
     private var settings: SettingsWindowController?
     private var help: HelpWindowController?
-    private var updateController: UpdateController?
     private var trustPoll: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -39,17 +38,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hintController.scheme = library.hotkeyScheme
         keyboardMonitor.hintObserver = hintController
 
-        // Sparkle drives auto-updates; it reads its config from the bundle's
-        // Info.plist, so it only does anything in a real packaged build.
-        let updateController = UpdateController()
-
         let menuBar = MenuBarController(
             library: library,
             onNewLayout: { [weak self] in self?.openEditor(editing: nil) },
             onEditLayout: { [weak self] layout in self?.openEditor(editing: layout) },
             onShowSettings: { [weak self] in self?.openSettings() },
-            onShowHelp: { [weak self] in self?.openHelp() },
-            makeUpdateMenuItem: { [weak updateController] in updateController?.makeMenuItem() }
+            onShowHelp: { [weak self] in self?.openHelp() }
         )
 
         // When settings or the active layout change (menu pick, editor save, or
@@ -65,7 +59,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         self.library = library
-        self.updateController = updateController
         self.overlay = overlay
         self.snapController = snapController
         self.dragMonitor = dragMonitor
