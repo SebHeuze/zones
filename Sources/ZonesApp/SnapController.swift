@@ -128,7 +128,9 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     /// untouched.
     private func refresh(at point: CGPoint, modifierActive: Bool) {
         guard modifierActive, let screen = screen(containing: point) else {
-            reset()
+            // Keep `draggedWindow`: Shift may be pressed mid-drag, after the
+            // window was captured at drag start. Only the armed target is dropped.
+            clearTarget()
             return
         }
 
@@ -145,11 +147,15 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
         )
     }
 
-    private func reset() {
+    private func clearTarget() {
         targetScreen = nil
         targetZone = nil
-        draggedWindow = nil
         overlay.hide()
+    }
+
+    private func reset() {
+        clearTarget()
+        draggedWindow = nil
     }
 
     // MARK: - Screen geometry

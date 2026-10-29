@@ -32,9 +32,9 @@ Zones runs on **macOS 14 (Sonoma) or later** and needs **Accessibility** permiss
    - **macOS 14 Sonoma:** right-click **Zones.app → Open**, then confirm in the dialog.
    - **macOS 15 Sequoia or later:** double-click it (it'll be blocked), then open **System Settings → Privacy & Security** and click **Open Anyway**.
    - Or skip the dialogs entirely: `xattr -dr com.apple.quarantine /Applications/Zones.app`
-3. That's the only warning you'll see — **Zones updates itself automatically** from then on.
+3. Zones has no built-in updater: to update, download the new DMG from the Releases page.
 
-Once it's running, click the split-rectangle icon in the menu bar to toggle snapping, pick or edit a layout, or check for updates.
+Once it's running, click the split-rectangle icon in the menu bar to toggle snapping, or pick or edit a layout.
 
 ## License
 
