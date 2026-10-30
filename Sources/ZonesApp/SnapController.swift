@@ -19,6 +19,14 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     private var targetZone: Zone?
     private var draggedWindow: FocusedWindow?
 
+    /// The dragged window's frame at drag start, used to tell a window move
+    /// apart from a drag inside the window (text selection, drag-and-drop).
+    private var dragStartFrame: CGRect?
+
+    /// Latched once the dragged window is seen moving, so the AX frame read
+    /// only happens until the gesture is confirmed as a window move.
+    private var isMovingWindow = false
+
     init(layout: ZoneLayout, overlay: OverlayWindowController) {
         self.layout = layout
         self.overlay = overlay
@@ -30,6 +38,8 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
         // Capture the window now: at drop time the frontmost app may have
         // changed, but at drag start the focused window is the one being moved.
         draggedWindow = FocusedWindow.current()
+        dragStartFrame = draggedWindow?.frame()
+        isMovingWindow = false
         refresh(at: point, modifierActive: modifierActive)
     }
 
@@ -124,10 +134,11 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     // MARK: - Snap state
 
     /// Recomputes the target screen/zone for the cursor and updates the overlay.
-    /// When the modifier isn't held the overlay is hidden, so normal drags are
+    /// When the modifier isn't held, or the drag isn't moving a window (e.g. a
+    /// Shift-drag text selection), the overlay is hidden, so normal drags are
     /// untouched.
     private func refresh(at point: CGPoint, modifierActive: Bool) {
-        guard modifierActive, let screen = screen(containing: point) else {
+        guard modifierActive, draggedWindowIsMoving(), let screen = screen(containing: point) else {
             // Keep `draggedWindow`: Shift may be pressed mid-drag, after the
             // window was captured at drag start. Only the armed target is dropped.
             clearTarget()
@@ -147,6 +158,23 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
         )
     }
 
+    /// Whether the gesture is moving the dragged window: its origin has shifted
+    /// while its size is unchanged. A drag inside the window leaves the frame
+    /// alone, and an edge resize changes the size, so neither arms snapping.
+    private func draggedWindowIsMoving() -> Bool {
+        if isMovingWindow { return true }
+        guard let start = dragStartFrame, let current = draggedWindow?.frame() else { return false }
+        let moved = abs(current.minX - start.minX) > Self.moveTolerance
+            || abs(current.minY - start.minY) > Self.moveTolerance
+        let resized = abs(current.width - start.width) > Self.moveTolerance
+            || abs(current.height - start.height) > Self.moveTolerance
+        isMovingWindow = moved && !resized
+        return isMovingWindow
+    }
+
+    /// Points of slack before a frame change counts as movement.
+    private static let moveTolerance: CGFloat = 1
+
     private func clearTarget() {
         targetScreen = nil
         targetZone = nil
@@ -156,6 +184,8 @@ final class SnapController: DragMonitorDelegate, KeyboardMonitorDelegate {
     private func reset() {
         clearTarget()
         draggedWindow = nil
+        dragStartFrame = nil
+        isMovingWindow = false
     }
 
     // MARK: - Screen geometry
